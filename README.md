@@ -10,4 +10,6 @@
 3. CSV to SQL (csv2sql.py)
    transfer system_logs.logarchive.csv to SQLite
 
-4. Reporting User Behavior of Camera Use (CameraReport.py)
+4. Camera Log Nomalization (CameraState.py)
+   
+5. Reporting User Behavior of Camera Use (CameraReport.py)
