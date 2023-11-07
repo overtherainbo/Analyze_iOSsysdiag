@@ -14,7 +14,7 @@ conn = sqlite3.connect(os.path.join(case_folder, f"CameraState.db"))
 cursor = conn.cursor()
 
 # 데이터 추출 쿼리 작성 및 실행
-query = "SELECT Timestamp, Bundle_ID, Camera_Type, State FROM CameraState WHERE Bundle_ID IS NOT NULL ORDER BY Timestamp"
+query = "SELECT Timestamp, Bundle_ID, Camera_Type, State FROM CameraState WHERE Bundle_ID IS NOT NULL ORDER BY Timestamp, Bundle_ID asc, State asc"
 cursor.execute(query)
 
 # 결과 추출
@@ -24,6 +24,17 @@ conn.close()
 # 데이터 처리
 data = pd.DataFrame(results, columns=['Timestamp', 'Bundle_ID', 'Camera_Type', 'State'])
 
+# Bundle_ID 수정 및 변환
+def modify_bundle_id(bundle_id):
+    if bundle_id == 'com.apple.camera':
+        return bundle_id.replace('com.apple.camera', 'camera').strip()
+    elif 'Prewarming Camera for' in bundle_id:
+        return bundle_id.replace('Prewarming Camera for', 'camera launched by').strip()
+    else:
+        return bundle_id
+
+data['Bundle_ID'] = data['Bundle_ID'].apply(modify_bundle_id)
+
 # 그래프 처리 및 저장
 timestamps = data['Timestamp']
 bundle_ids = data['Bundle_ID']
@@ -31,20 +42,24 @@ states = data['State']
 
 plt.figure(figsize=(12, 6))
 
-# 상태에 따라 막대 색상 설정
-#colors = ['blue' if state == 'FRONT' else 'red' for state in states]
-colors = ['blue' if state == 'FRONT' else 'red' if state == 'BACK' else 'black' for state in data['State']]
-
 # 막대 그래프 그리기
-plt.bar(timestamps, [1] * len(timestamps), color=colors)
+plt.bar(timestamps, [1] * len(timestamps), edgecolor='gray', color='white')
 
 # Bundle_ID 값을 막대 안에 표시
 for x, bundle_id in zip(timestamps, bundle_ids):
-    plt.text(x, 0.5, str(bundle_id), rotation=90, ha='center', va='center', fontsize=8, color='white')
+    plt.text(x, 0.1, bundle_id, rotation=90, ha='center', va='bottom', fontsize=8, color='black')
+
+# 막대 그래프 상단에 State Color 표시
+colors = ['dodgerblue' if state == 'FRONT'
+    else 'red' if state == 'BACK'
+    else 'dimgray'
+    for state in data['State']]
+for x, color in zip(timestamps, colors):
+    plt.scatter(x, 1, s=70, c=color)
 
 plt.xlabel('Timestamp')
-plt.ylabel('Camera Type')
-plt.title('Camera Type by Timestamp')
+plt.ylabel('Camera Apps')
+plt.title('Camera Activities by Timestamp')
 plt.xticks(rotation=90)
 plt.yticks([])  # y축 눈금 비활성화
 plt.tight_layout()
