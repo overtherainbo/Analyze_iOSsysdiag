@@ -11,6 +11,6 @@
    NormalizedLog.db
    NormalizedLog.json
    
-4.4 Reporting
+4. Reporting
    Timeline of User Behavior (TimelineReport.html)
    Chart Report of Camera Usage (CameraReport.py)
