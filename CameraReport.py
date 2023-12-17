@@ -10,11 +10,19 @@ case_name = input("Case Name을 입력하세요: ")
 case_folder = os.path.join(os.getcwd(), case_name)
 
 # SQLite 데이터베이스에 연결
-conn = sqlite3.connect(os.path.join(case_folder, f"CameraState.db"))
+conn = sqlite3.connect(os.path.join(case_folder, f"NormalizedLog_{case_name}.db"))
 cursor = conn.cursor()
 
 # 데이터 추출 쿼리 작성 및 실행
-query = "SELECT Timestamp, Bundle_ID, Camera_Type, State FROM CameraState WHERE Bundle_ID IS NOT NULL ORDER BY Timestamp, Bundle_ID asc, State asc"
+query = """
+SELECT Timestamp, 
+        Bundle_ID, 
+        Message2 as State, 
+        Message1 as Camera_Type 
+FROM NormalizedLog 
+WHERE Category is "Camera" and Bundle_ID IS NOT NULL and Camera_Type is not NULL
+ORDER BY Timestamp, Bundle_ID asc, State asc
+        """
 cursor.execute(query)
 
 # 결과 추출
@@ -22,7 +30,7 @@ results = cursor.fetchall()
 conn.close()
 
 # 데이터 처리
-data = pd.DataFrame(results, columns=['Timestamp', 'Bundle_ID', 'Camera_Type', 'State'])
+data = pd.DataFrame(results, columns=['Timestamp', 'Bundle_ID', 'State', 'Camera_Type'])
 
 # Bundle_ID 수정 및 변환
 def modify_bundle_id(bundle_id):
@@ -38,7 +46,7 @@ data['Bundle_ID'] = data['Bundle_ID'].apply(modify_bundle_id)
 # 그래프 처리 및 저장
 timestamps = data['Timestamp']
 bundle_ids = data['Bundle_ID']
-states = data['State']
+states = data['Camera_Type']
 
 plt.figure(figsize=(12, 6))
 
@@ -49,11 +57,11 @@ plt.bar(timestamps, [1] * len(timestamps), edgecolor='gray', color='white')
 for x, bundle_id in zip(timestamps, bundle_ids):
     plt.text(x, 0.1, bundle_id, rotation=90, ha='center', va='bottom', fontsize=8, color='black')
 
-# 막대 그래프 상단에 State Color 표시
-colors = ['dodgerblue' if state == 'FRONT'
-    else 'red' if state == 'BACK'
+# 막대 그래프 상단에 Camera_Type Color 표시
+colors = ['dodgerblue' if Camera_Type == 'FRONT'
+    else 'red' if Camera_Type == 'BACK'
     else 'dimgray'
-    for state in data['State']]
+    for Camera_Type in data['Camera_Type']]
 for x, color in zip(timestamps, colors):
     plt.scatter(x, 1, s=70, c=color)
 

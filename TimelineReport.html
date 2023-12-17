@@ -1,0 +1,540 @@
+<!-- Styles -->
+<style>
+#chartdiv {
+  width: 100%;
+  height: 600px;
+}
+
+.demo-theme-dark .demo-background {
+  background: #000;
+}
+</style>
+
+<!-- HTML -->
+<div id="chartdiv"></div>
+<input type="file" id="fileInput" accept=".json" onchange="handleFile(this)">
+
+<!-- Resources -->
+<script src="https://cdn.amcharts.com/lib/4/core.js"></script>
+<script src="https://cdn.amcharts.com/lib/4/charts.js"></script>
+<script src="https://cdn.amcharts.com/lib/4/plugins/timeline.js"></script>
+<script src="https://cdn.amcharts.com/lib/4/plugins/bullets.js"></script>
+<script src="https://cdn.amcharts.com/lib/4/themes/animated.js"></script>
+
+<!-- Chart code -->
+<script>
+
+function handleFile(input) {
+  const file = input.files[0];
+  
+  if (file) {
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+      const contents = event.target.result;
+      const data = JSON.parse(contents);
+      createChart(data); // 데이터를 전달하여 차트 생성하는 함수 호출
+    };
+    
+    reader.readAsText(file);
+  } else {
+    console.error('파일을 선택해주세요.');
+  }
+}
+
+function createChart(data) {
+am4core.ready(function() {
+
+// Themes
+am4core.useTheme(am4themes_animated);
+
+var chart = am4core.create("chartdiv", am4plugins_timeline.SerpentineChart);
+chart.data = data;  // json 데이터를 차트의 데이터로 설정함
+chart.curveContainer.padding(50, 20, 50, 20);
+chart.levelCount = 4;
+chart.yAxisRadius = am4core.percent(25);
+chart.yAxisInnerRadius = am4core.percent(-25);
+chart.maskBullets = false;
+
+var colorSet = new am4core.ColorSet();
+colorSet.saturation = 0.5;
+chart.dateFormatter.dateFormat = "yyyy-MM-dd";
+chart.dateFormatter.inputDateFormat = "yyyy-MM-dd HH:mm:ss";
+chart.fontSize = 11;
+
+// 카테고리 축 설정
+var categoryAxis = chart.yAxes.push(new am4charts.CategoryAxis());
+categoryAxis.dataFields.category = "Category"; // JSON 파일의 'Category' 필드를 카테고리 축에 연결
+categoryAxis.renderer.grid.template.disabled = true;
+categoryAxis.renderer.labels.template.paddingRight = 25;
+categoryAxis.renderer.minGridDistance = 10;
+categoryAxis.renderer.innerRadius = -60;
+categoryAxis.renderer.radius = 60;
+
+// 시간 축 설정 (Date 필드 사용)
+var dateAxis = chart.xAxes.push(new am4charts.DateAxis());
+dateAxis.dataFields.date = "Date"; // JSON 파일의 Date 필드를 시간 축에 연결
+dateAxis.renderer.minGridDistance = 70;
+dateAxis.renderer.tooltipLocation = 0;
+dateAxis.startLocation = -0.5;
+dateAxis.renderer.line.strokeDasharray = "1,4";
+dateAxis.renderer.line.strokeOpacity = 0.6;
+dateAxis.tooltip.background.fillOpacity = 0.2;
+dateAxis.tooltip.background.cornerRadius = 5;
+dateAxis.tooltip.label.fill = new am4core.InterfaceColorSet().getFor("alternativeBackground");
+dateAxis.tooltip.label.paddingTop = 7;
+
+var labelTemplate = dateAxis.renderer.labels.template;
+labelTemplate.verticalCenter = "middle";
+labelTemplate.fillOpacity = 0.7;
+labelTemplate.background.fill = new am4core.InterfaceColorSet().getFor("background");
+labelTemplate.background.fillOpacity = 1;
+labelTemplate.padding(7, 7, 7, 7);
+
+// 데이터 시리즈 생성
+var series = chart.series.push(new am4plugins_timeline.CurveColumnSeries());
+series.columns.template.height = am4core.percent(20);
+series.columns.template.tooltipText = "{Category}: [bold]{openDateX}[/] - [bold]{dateX}[/]";
+
+series.dataFields.openDateX = "start";
+series.dataFields.dateX = "end";
+series.dataFields.categoryY = "Category";
+series.columns.template.propertyFields.fill = "color"; // 데이터에서 색상 가져오기
+series.columns.template.propertyFields.stroke = "color";
+series.columns.template.strokeOpacity = 0;
+series.minBulletDistance = 50; //인접한 두 데이터 포인트 사이에 픽셀 수가 적으면 글머리 기호를 숨김
+
+// 메시지1과 메시지2 표시를 위한 레이블 추가
+var bullet = series.bullets.push(new am4charts.LabelBullet());
+bullet.label.text = "{Message1}";
+bullet.label.truncate = true;
+bullet.label.maxWidth = 200;
+bullet.label.tooltipText = "{Message1}";
+
+var bullet2 = series.bullets.push(new am4charts.LabelBullet());
+bullet2.label.text = "{Message2}";
+bullet2.label.truncate = true;
+bullet2.label.maxWidth = 200;
+bullet2.label.tooltipText = "{Message2}";
+
+// // 기본 이벤트 시리즈 생성
+// var eventSeries = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+// eventSeries.dataFields.dateX = "eventDate";
+// eventSeries.dataFields.categoryY = "category";
+
+// var eventData = data.map(item => ({
+//       eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+//       category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+//       letter: item.Message1,//+' '+item.Message2, // JSON 파일의 Message1+Message2 필드를 letter로 매핑
+//       description: item.Bundle_ID // JSON 파일의 Message2 필드를 description으로 매핑
+//     }));
+
+// eventSeries.data = eventData;
+// eventSeries.strokeOpacity = 0;
+
+// var flagBullet = eventSeries.bullets.push(new am4plugins_bullets.FlagBullet())
+// flagBullet.label.propertyFields.text = "letter";
+// flagBullet.locationX = 0;
+// //flagBullet.poleHeight = 10;
+// flagBullet.tooltipText = "{description}";
+
+
+/////////////////////////////
+// 이벤트 시리즈 Camera Off 생성
+var eventSeriesCamera = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesCamera.dataFields.dateX = "eventDate";
+eventSeriesCamera.dataFields.categoryY = "category";
+eventSeriesCamera.strokeOpacity = 0; // 아이콘 선으로 연결하지 않음
+
+// JSON 데이터를 Camera Off 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataCamera = data
+  .filter(item => item.Category === "Camera" && item.Message2 === "OFF") // Category가 "Camera"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesCamera.data = eventDataCamera; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// iPhone Camera Off 아이콘 이미지 표시
+var bullet = eventSeriesCamera.bullets.push(new am4charts.Bullet());
+var image = bullet.createChild(am4core.Image);
+image.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/camera_off.png?raw=true";
+image.width = 30;
+image.height = 30;
+image.horizontalCenter = "middle";
+image.verticalCenter = "middle";
+image.tooltipText = "{bundleid}"; 
+
+/////////////////////////////
+// 이벤트 시리즈 Camera Back 생성
+var eventSeriesCamera = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesCamera.dataFields.dateX = "eventDate";
+eventSeriesCamera.dataFields.categoryY = "category";
+eventSeriesCamera.strokeOpacity = 0;
+
+// JSON 데이터를 Camera Back 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataCamera = data
+  .filter(item => item.Category === "Camera" && item.Message1 === "BACK") // Category가 "Camera"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1,//+'\n'+item.Message2, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesCamera.data = eventDataCamera; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// iPhone Camera Back 아이콘 이미지 표시
+var bullet = eventSeriesCamera.bullets.push(new am4charts.Bullet());
+var image = bullet.createChild(am4core.Image);
+image.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/camera_back.png?raw=true";
+image.width = 30;
+image.height = 30;
+image.horizontalCenter = "middle";
+image.verticalCenter = "middle";
+image.tooltipText = "{bundleid}"; 
+
+/////////////////////////////
+// 이벤트 시리즈 Camera Front 생성
+var eventSeriesCamera = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesCamera.dataFields.dateX = "eventDate";
+eventSeriesCamera.dataFields.categoryY = "category";
+eventSeriesCamera.strokeOpacity = 0;
+
+// JSON 데이터를 Camera Front 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataCamera = data
+  .filter(item => item.Category === "Camera" && item.Message1 === "FRONT") // Category가 "Camera"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1,//+'\n'+item.Message2, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesCamera.data = eventDataCamera; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// iPhone Camera Front 아이콘 이미지 표시
+var bullet = eventSeriesCamera.bullets.push(new am4charts.Bullet());
+var image = bullet.createChild(am4core.Image);
+image.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/camera_front.png?raw=true";
+image.width = 30;
+image.height = 30;
+image.horizontalCenter = "middle";
+image.verticalCenter = "middle";
+image.tooltipText = "{bundleid}"; 
+
+//var labelBullet = eventSeriesCamera.bullets.push(new am4charts.LabelBullet());
+//labelBullet.label.text = "{letter}";
+//labelBullet.label.dy = 0;
+
+
+///////////////////////////
+// 이벤트 시리즈 FaceID Success 생성
+var eventSeriesFaceid = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesFaceid.dataFields.dateX = "eventDate";
+eventSeriesFaceid.dataFields.categoryY = "category";
+eventSeriesFaceid.strokeOpacity = 0;
+
+// JSON 데이터를 FaceID Success 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataFaceID1 = data
+  .filter(item => item.Category === "FaceID" && item.Message2 === "Success") // Category가 "FaceID"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesFaceid.data = eventDataFaceID1; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Face ID Success 아이콘 이미지 표시
+var bulletFaceid = eventSeriesFaceid.bullets.push(new am4charts.Bullet());
+var imageFaceid = bulletFaceid.createChild(am4core.Image);
+imageFaceid.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/faceid_success.png?raw=true";
+imageFaceid.width = 30;
+imageFaceid.height = 30;
+imageFaceid.horizontalCenter = "middle";
+imageFaceid.verticalCenter = "middle";
+imageFaceid.tooltipText = "{bundleid}"; 
+
+///////////////////////////
+// 이벤트 시리즈 FaceID Fail 생성
+var eventSeriesFaceid = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesFaceid.dataFields.dateX = "eventDate";
+eventSeriesFaceid.dataFields.categoryY = "category";
+eventSeriesFaceid.strokeOpacity = 0;
+
+// JSON 데이터를 FaceID Fail 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataFaceID2 = data
+  .filter(item => item.Category === "FaceID" && item.Message2 === "Fail") // Category가 "FaceID"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesFaceid.data = eventDataFaceID2; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Face ID Fail 아이콘 이미지 표시
+var bulletFaceid = eventSeriesFaceid.bullets.push(new am4charts.Bullet());
+var imageFaceid = bulletFaceid.createChild(am4core.Image);
+imageFaceid.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/faceid_fail.png?raw=true";
+imageFaceid.width = 30;
+imageFaceid.height = 30;
+imageFaceid.horizontalCenter = "middle";
+imageFaceid.verticalCenter = "middle";
+imageFaceid.tooltipText = "{bundleid}"; 
+
+// var labelBulletFaceid = eventSeriesFaceid.bullets.push(new am4charts.LabelBullet());
+// labelBulletFaceid.label.text = "{description}";
+// labelBulletFaceid.label.dy = 0;
+
+
+/////////////////////////////
+// 이벤트 시리즈 Rotation portrait (1) 생성
+var eventSeriesRotation = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesRotation.dataFields.dateX = "eventDate";
+eventSeriesRotation.dataFields.categoryY = "category";
+eventSeriesRotation.strokeOpacity = 0;
+
+// // Category가 "Rotation"일때 flagBullet label에 Message1를 표시
+// var flagBulletRotation = eventSeriesRotation.bullets.push(new am4plugins_bullets.FlagBullet())
+// flagBulletRotation.label.propertyFields.text = "letter";
+// flagBulletRotation.locationX = 0;
+// //flagBulletRotation.poleHeight = 5;
+// flagBulletRotation.tooltipText = "{bundleid}";
+
+// JSON 데이터를 Rotation portrait (1) 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataRotation1 = data
+  .filter(item => item.Category === "Rotation" && item.Message1 === "portrait (1)") // Category가 "Rotation"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesRotation.data = eventDataRotation1; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Rotation portrait (1) 아이콘 이미지 표시
+var bulletRotation1 = eventSeriesRotation.bullets.push(new am4charts.Bullet());
+var imageRotation = bulletRotation1.createChild(am4core.Image);
+imageRotation.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/iphone_portrait.png?raw=true";
+imageRotation.width = 30;
+imageRotation.height = 30;
+imageRotation.horizontalCenter = "middle";
+imageRotation.verticalCenter = "middle";
+imageRotation.tooltipText = "{letter}"; 
+
+
+// 이벤트 시리즈 Rotation portraitupsidedown (2) 생성
+var eventSeriesRotation = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesRotation.dataFields.dateX = "eventDate";
+eventSeriesRotation.dataFields.categoryY = "category";
+eventSeriesRotation.strokeOpacity = 0;
+
+// JSON 데이터를 Rotation portraitupsidedown (2) 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataRotation2 = data
+  .filter(item => item.Category === "Rotation" && item.Message1 === "portraitUpsideDown (2)") // Category가 "Rotation"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesRotation.data = eventDataRotation2; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Rotation portraitupsidedown (2) 아이콘 이미지 표시
+var bulletRotation2 = eventSeriesRotation.bullets.push(new am4charts.Bullet());
+var imageRotation = bulletRotation2.createChild(am4core.Image);
+imageRotation.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/iphone_portraitupsidedown.png?raw=true";
+imageRotation.width = 30;
+imageRotation.height = 30;
+imageRotation.horizontalCenter = "middle";
+imageRotation.verticalCenter = "middle";
+imageRotation.tooltipText = "{letter}"; 
+
+// 이벤트 시리즈 Rotation landscapeleft (3) 생성
+var eventSeriesRotation = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesRotation.dataFields.dateX = "eventDate";
+eventSeriesRotation.dataFields.categoryY = "category";
+eventSeriesRotation.strokeOpacity = 0;
+
+// JSON 데이터를 Rotation landscapeleft (3) 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataRotation3 = data
+  .filter(item => item.Category === "Rotation" && item.Message1 === "landscapeLeft (3)") // Category가 "Rotation"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesRotation.data = eventDataRotation3; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Rotation landscapeleft (3) 아이콘 이미지 표시
+var bulletRotation3 = eventSeriesRotation.bullets.push(new am4charts.Bullet());
+var imageRotation = bulletRotation3.createChild(am4core.Image);
+imageRotation.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/iphone_landscapeleft.png?raw=true";
+imageRotation.width = 30;
+imageRotation.height = 30;
+imageRotation.horizontalCenter = "middle";
+imageRotation.verticalCenter = "middle";
+imageRotation.tooltipText = "{letter}"; 
+
+
+// 이벤트 시리즈 Rotation landscaperight (4) 생성
+var eventSeriesRotation = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesRotation.dataFields.dateX = "eventDate";
+eventSeriesRotation.dataFields.categoryY = "category";
+eventSeriesRotation.strokeOpacity = 0;
+
+// JSON 데이터를 Rotation landscaperight (4) 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataRotation4 = data
+  .filter(item => item.Category === "Rotation" && item.Message1 === "landscapeRight (4)") // Category가 "Rotation"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesRotation.data = eventDataRotation4; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Rotation landscaperight (4) 아이콘 이미지 표시
+var bulletRotation4 = eventSeriesRotation.bullets.push(new am4charts.Bullet());
+var imageRotation = bulletRotation4.createChild(am4core.Image);
+imageRotation.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/iphone_landscaperight.png?raw=true";
+imageRotation.width = 30;
+imageRotation.height = 30;
+imageRotation.horizontalCenter = "middle";
+imageRotation.verticalCenter = "middle";
+imageRotation.tooltipText = "{letter}"; 
+
+
+// 이벤트 시리즈 Rotation faceup (5) 생성
+var eventSeriesRotation = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesRotation.dataFields.dateX = "eventDate";
+eventSeriesRotation.dataFields.categoryY = "category";
+eventSeriesRotation.strokeOpacity = 0;
+
+// JSON 데이터를 Rotation faceup (5) 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataRotation5 = data
+  .filter(item => item.Category === "Rotation" && item.Message1 === "faceUp (5)") // Category가 "Rotation"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesRotation.data = eventDataRotation5; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Rotation faceup (5) 아이콘 이미지 표시
+var bulletRotation5 = eventSeriesRotation.bullets.push(new am4charts.Bullet());
+var imageRotation = bulletRotation5.createChild(am4core.Image);
+imageRotation.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/iphone_faceup.png?raw=true";
+imageRotation.width = 30;
+imageRotation.height = 30;
+imageRotation.horizontalCenter = "middle";
+imageRotation.verticalCenter = "middle";
+imageRotation.tooltipText = "{letter}"; 
+
+
+// 이벤트 시리즈 Rotation facedown (6) 생성
+var eventSeriesRotation = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesRotation.dataFields.dateX = "eventDate";
+eventSeriesRotation.dataFields.categoryY = "category";
+eventSeriesRotation.strokeOpacity = 0;
+
+// JSON 데이터를 Rotation facedown (6) 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataRotation6 = data
+  .filter(item => item.Category === "Rotation" && item.Message1 === "faceDown (6)") // Category가 "Rotation"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesRotation.data = eventDataRotation4; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Rotation facedown (6) 아이콘 이미지 표시
+var bulletRotation6 = eventSeriesRotation.bullets.push(new am4charts.Bullet());
+var imageRotation = bulletRotation6.createChild(am4core.Image);
+imageRotation.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/iphone_facedown.png?raw=true";
+imageRotation.width = 30;
+imageRotation.height = 30;
+imageRotation.horizontalCenter = "middle";
+imageRotation.verticalCenter = "middle";
+imageRotation.tooltipText = "{letter}"; 
+
+
+/////////////////////////////
+// 이벤트 시리즈 Brightness 생성
+var eventSeriesBrightness = chart.series.push(new am4plugins_timeline.CurveLineSeries());
+eventSeriesBrightness.dataFields.dateX = "eventDate";
+eventSeriesBrightness.dataFields.categoryY = "category";
+eventSeriesBrightness.strokeOpacity = 0;
+
+// JSON 데이터를 Brightness 이벤트 데이터로 변환 (Date, Category, Message1, Message2)
+var eventDataBrightness = data
+  .filter(item => item.Category === "Brightness" && item.Bundle_ID !== null) // Category가 "Brightness"인 데이터 필터링
+  .map(item => ({
+    eventDate: item.Date, // JSON 파일의 Date 필드를 eventDate로 매핑
+    category: item.Category, // JSON 파일의 Category 필드를 category로 매핑
+    bundleid: item.Bundle_ID,
+    letter: item.Message1, // JSON 파일의 Message1 필드를 letter로 매핑
+    description: item.Message2 // JSON 파일의 Message2 필드를 description으로 매핑
+  }));
+
+eventSeriesBrightness.data = eventDataBrightness; // 이벤트 시리즈에 JSON 데이터를 설정합니다.
+
+// Screen Brightness 아이콘 이미지 표시
+var bulletBrightness = eventSeriesBrightness.bullets.push(new am4charts.Bullet());
+var imageBrightness = bulletBrightness.createChild(am4core.Image);
+imageBrightness.href = "https://github.com/overtherainbo/Analyze_iOSsysdiag/blob/main/brightness.png?raw=true";
+imageBrightness.width = 40;
+imageBrightness.height = 40;
+imageBrightness.horizontalCenter = "middle";
+imageBrightness.verticalCenter = "middle";
+imageBrightness.tooltipText = "{bundleid}"; 
+
+var labelBulletBrightness = eventSeriesBrightness.bullets.push(new am4charts.LabelBullet());
+labelBulletBrightness.label.text = "{letter}";
+labelBulletBrightness.label.dy = 0;
+
+// 기타 옵션
+chart.scrollbarX = new am4core.Scrollbar();
+chart.scrollbarX.align = "center"
+chart.scrollbarX.width = am4core.percent(85);
+
+var cursor = new am4plugins_timeline.CurveCursor();
+chart.cursor = cursor;
+cursor.xAxis = dateAxis;
+cursor.yAxis = categoryAxis;
+cursor.lineY.disabled = true;
+cursor.lineX.strokeDasharray = "1,4";
+cursor.lineX.strokeOpacity = 1;
+
+dateAxis.renderer.tooltipLocation2 = 0;
+categoryAxis.cursorTooltipEnabled = false;
+
+})}; // end am4core.ready()
+</script>
