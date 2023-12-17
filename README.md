@@ -4,12 +4,13 @@
    Case Name(Number) required
 
 2. Unified Log Parsing (UnifiedlogParsing.py)
-   input : sysdiagnose.gz
-   output : folder (unzip and parsing)
+   input : sysdiagnose.tar.gz
+   output : folder (unzip & parsing) and UnifiedLog.db
 
-3. CSV to SQL (csv2sql.py)
-   transfer system_logs.logarchive.csv to SQLite
-
-4. Camera Log Nomalization (CameraState.py)
+3. Log Normalization (Normalization.py)
+   NormalizedLog.db
+   NormalizedLog.json
    
-5. Reporting User Behavior of Camera Use (CameraReport.py)
+4.4 Reporting
+   Timeline of User Behavior (TimelineReport.html)
+   Chart Report of Camera Usage (CameraReport.py)
